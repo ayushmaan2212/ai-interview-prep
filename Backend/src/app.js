@@ -10,6 +10,7 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
   "https://ai-interview-prep-ecru-phi.vercel.app",
+  "https://ai-interview-final-2hsacaog9-ayushmaan2212s-projects.vercel.app",
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
