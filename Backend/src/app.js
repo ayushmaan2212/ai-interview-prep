@@ -9,8 +9,6 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
   "http://localhost:3001",
-  "https://ai-interview-prep-ecru-phi.vercel.app",
-  "https://ai-interview-final-2hsacaog9-ayushmaan2212s-projects.vercel.app",
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
@@ -23,21 +21,23 @@ app.use(cookieParser());
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) {
+      if (!origin) return callback(null, true);
+
+      // Allow all vercel.app subdomains
+      if (origin.endsWith(".vercel.app")) {
         return callback(null, true);
       }
 
       if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`CORS Error: Origin ${origin} not allowed`));
+        return callback(null, true);
       }
+
+      callback(new Error(`CORS Error: Origin ${origin} not allowed`));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  }),
+  })
 );
 
 // Health check endpoint
