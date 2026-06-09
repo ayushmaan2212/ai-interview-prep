@@ -1,104 +1,86 @@
-# Local Development Setup
+# Deployment Guide
 
 ## Prerequisites
 
-- Node.js (v18+) and npm installed
-- MongoDB running locally OR MongoDB Atlas connection string
+- Node.js v22+
+- MongoDB Atlas cluster (or self-hosted)
+- GitHub repository
+- Render.com & Vercel accounts
 
-## Backend Setup
+## Local Development
 
-1. Navigate to the Backend folder:
-
-   ```bash
-   cd Backend
-   ```
-
-2. Install dependencies:
-
-   ```bash
-   npm install
-   ```
-
-3. Create a `.env` file (copy from `.env.example` or `.env.local`):
-
-   ```bash
-   PORT=5000
-   MONGO_URI=mongodb://localhost:27017/ai-interview-prep
-   JWT_SECRET=your_jwt_secret_key_for_local_development
-   NODE_ENV=development
-   ```
-
-4. Start the backend server:
-   ```bash
-   npm run dev
-   ```
-   Server will run on `http://localhost:5000`
-
-## Frontend Setup
-
-1. Navigate to the Frontend folder:
-
-   ```bash
-   cd Frontend/vite-project
-   ```
-
-2. Install dependencies:
-
-   ```bash
-   npm install
-   ```
-
-3. The `.env.local` file is already configured for local development:
-
-   ```
-   VITE_API_URL=http://localhost:5000
-   ```
-
-4. Start the frontend development server:
-   ```bash
-   npm run dev
-   ```
-   Frontend will run on `http://localhost:5173`
-
-## Running Both Locally
-
-### Option 1: Two Terminal Windows
-
-- Terminal 1: `cd Backend && npm run dev`
-- Terminal 2: `cd Frontend/vite-project && npm run dev`
-
-### Option 2: Using PM2 (Process Manager)
+### Backend
 
 ```bash
-npm install -g pm2
-
-# From project root
-pm2 start "cd Backend && npm run dev" --name "api"
-pm2 start "cd Frontend/vite-project && npm run dev" --name "frontend"
-
-# View logs
-pm2 logs
-
-# Stop all
-pm2 stop all
+cd Backend
+npm install
+# Create .env with MONGO_URI, JWT_SECRET, API keys (GROQ_API_KEY, GOOGLE_API_KEY)
+npm run dev  # Nodemon watches for changes
 ```
+
+Runs on `http://localhost:5000`
+
+### Frontend
+
+```bash
+cd Frontend/vite-project
+npm install
+# .env.production already configured for production
+npm run dev  # Vite dev server
+```
+
+Runs on `http://localhost:5173`
 
 ---
 
-## Deployment to Render (Backend)
+## Production Deployment
 
-1. Push your code to GitHub
-2. Go to [render.com](https://render.com)
-3. Create a new Web Service
-4. Connect your GitHub repository
-5. Configure:
-   - Build command: `npm install`
-   - Start command: `node server.js`
-   - Environment variables:
-     - `MONGO_URI`: Your MongoDB Atlas connection string
-     - `JWT_SECRET`: Your secure JWT secret
-     - `NODE_ENV`: `production`
-     - `FRONTEND_URL`: Your Vercel frontend URL
+### Backend → Render.com
+
+1. **Create Web Service**
+   - GitHub repo: `ai-interview-prep`
+   - Runtime: Node
+   - Build: `npm install`
+   - Start: `node server.js`
+
+2. **Environment Variables**
+
+   ```
+   NODE_ENV=production
+   PORT=5000
+   MONGO_URI=<MongoDB Atlas URI>
+   JWT_SECRET=<strong-random-secret>
+   GROQ_API_KEY=<your-key>
+   GOOGLE_API_KEY=<your-key>
+   ```
+
+3. **CORS Configuration** (auto-handles via `src/app.js` dynamic whitelist)
+
+### Frontend → Vercel
+
+1. **Connect Repository**
+   - Framework: React
+   - Build command: `npm run build`
+   - Output: `dist/`
+
+2. **Environment Variables**
+
+   ```
+   VITE_API_URL=https://<your-render-backend>.onrender.com
+   ```
+
+3. **Auto-deploys** on push to `main`
+
+---
+
+## Environment Files
+
+- **Production**: `Frontend/vite-project/.env.production` (API URL hardcoded)
+- **Local**: Use `.env` files (gitignored)
+
+## CI/CD
+
+Both platforms auto-deploy on Git push. Render rebuilds Node app, Vercel builds React bundle. - `FRONTEND_URL`: Your Vercel frontend URL
 
 ---
 

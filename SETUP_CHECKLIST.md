@@ -1,52 +1,53 @@
-# ✅ Setup Verification Checklist
+# Setup & Deployment Checklist
 
-Use this checklist to verify that your application is properly configured for local development and deployment.
+## Local Development
 
-## Local Development Setup
+### Backend
 
-### Backend Setup
+- [ ] `cd Backend && npm install`
+- [ ] Configure `.env`:
+  ```
+  PORT=5000
+  MONGO_URI=mongodb+srv://user:pass@cluster.mongodb.net/dbname
+  JWT_SECRET=<generate-strong-secret>
+  NODE_ENV=development
+  GROQ_API_KEY=<your-key>
+  GOOGLE_API_KEY=<your-key>
+  ```
+- [ ] `npm run dev` → Runs on `localhost:5000`
+- [ ] Health check: `curl http://localhost:5000/api/health`
 
-- [ ] Navigate to `Backend` folder
-- [ ] Install dependencies: `npm install`
-- [ ] Create `.env` file with:
-  - [ ] `PORT=5000`
-  - [ ] `MONGO_URI=mongodb://localhost:27017/ai-interview-prep` (or your MongoDB Atlas URI)
-  - [ ] `JWT_SECRET=dev_secret_key`
-  - [ ] `NODE_ENV=development`
-- [ ] Start server: `npm run dev`
-- [ ] Backend running on `http://localhost:5000` ✓
+### Frontend
 
-### Frontend Setup
-
-- [ ] Navigate to `Frontend/vite-project` folder
-- [ ] Install dependencies: `npm install`
-- [ ] Verify `.env.local` exists with `VITE_API_URL=http://localhost:5000`
-- [ ] Start dev server: `npm run dev`
-- [ ] Frontend running on `http://localhost:5173` ✓
-
-### Local Testing
-
-- [ ] Open `http://localhost:5173` in browser
-- [ ] Register a new account
-- [ ] Login with credentials
-- [ ] Verify error messages display as text (not console)
-- [ ] Create an interview plan with:
-  - [ ] Job description only, then self description (test optional resume)
-  - [ ] Job description only, then upload resume (test optional self-description)
-- [ ] Logout button visible and functional
-- [ ] Logout redirects to login page
+- [ ] `cd Frontend/vite-project && npm install`
+- [ ] `npm run dev` → Runs on `localhost:5173`
+- [ ] Test auth flow: register → login → create interview → logout
 
 ---
 
-## Deployment Configuration
+## Production Deployment
 
-### Backend (Render)
+### Render (Backend)
 
-**Files Created:**
+- [ ] Create Web Service from GitHub
+- [ ] Set start command: `node server.js`
+- [ ] Add env vars (MONGO_URI, JWT_SECRET, API keys)
+- [ ] Verify `render.json` in repo root
+- [ ] Test API endpoint after deploy
 
-- [ ] `Backend/.env.example` - Template for environment variables
-- [ ] `Backend/.env.local` - Local development environment
-- [ ] `Backend/render.json` - Render deployment configuration
+### Vercel (Frontend)
+
+- [ ] Import project from GitHub
+- [ ] Set env var: `VITE_API_URL=<render-backend-url>`
+- [ ] Verify `vercel.json` in repo root
+- [ ] Build succeeds: `npm run build` generates `dist/`
+- [ ] Test endpoints post-deploy
+
+### GitHub
+
+- [ ] Push changes: `git push origin main`
+- [ ] CI/CD auto-triggers on both platforms
+- [ ] Monitor build logs
 
 **Render Environment Variables Required:**
 
