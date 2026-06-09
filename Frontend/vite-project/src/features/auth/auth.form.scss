@@ -38,5 +38,17 @@ main{
         color:#e1034d;
         text-decoration: none;
     }
+
+    .error-message {
+        padding: 12px 16px;
+        background-color: #fee;
+        color: #c33;
+        border-radius: 8px;
+        border: 1px solid #fcc;
+        font-size: 14px;
+        margin-bottom: 1rem;
+        line-height: 1.5;
+        word-wrap: break-word;
+    }
 }
 

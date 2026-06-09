@@ -11,10 +11,18 @@ import '../auth.form.scss'
     const [username, setUsername] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+    const [error, setError] = useState('')
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        await handleRegister({username, email, password});
+        setError('');
+        try {
+            await handleRegister({username, email, password});
+            navigate('/');
+        } catch (err) {
+            const errorMessage = err?.response?.data?.message || err?.message || 'Failed to register';
+            setError(errorMessage);
+        }
     }
 
     // Redirect to home if user is logged in
@@ -30,7 +38,11 @@ import '../auth.form.scss'
     <main>
         <div className="form-container">
             <h1>Register</h1>
-            
+            {error && (
+                <div className="error-message">
+                    {error}
+                </div>
+            )}
             <form onSubmit={handleSubmit}>
 
                 <div className="input-group">

@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 /* eslint-disable no-unused-vars */
-import React, { use,useState } from 'react'
+import React, { useState } from 'react'
 import "../auth.form.scss"
 import { useNavigate, Navigate, Link }  from 'react-router';
 import { useAuth } from '../hooks/useAuth';
@@ -12,10 +12,18 @@ import { useAuth } from '../hooks/useAuth';
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        await handleLogin({email, password});
+        setError('');
+        try {
+            await handleLogin({email, password});
+            navigate('/');
+        } catch (err) {
+            const errorMessage = err?.response?.data?.message || err?.message || 'Failed to login';
+            setError(errorMessage);
+        }
     }
 
     // Redirect to home if user is logged in
@@ -31,7 +39,11 @@ import { useAuth } from '../hooks/useAuth';
     <main>
         <div className="form-container">
             <h1>Login</h1>
-
+            {error && (
+                <div className="error-message">
+                    {error}
+                </div>
+            )}
             <form onSubmit={handleSubmit}>
 
                 <div className="input-group">

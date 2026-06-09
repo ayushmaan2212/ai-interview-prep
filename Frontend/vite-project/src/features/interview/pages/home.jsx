@@ -1,18 +1,29 @@
 import React, { useState, useRef } from 'react'
 import "../styles/home.scss"
 import { useInterview } from '../hooks/useInterview.js'
+import { useAuth } from '../../auth/hooks/useAuth.js'
 import { useNavigate } from 'react-router'
 
 
 const Home = () => {
 
     const { loading, generateReport, reports } = useInterview()
+    const { handleLogout } = useAuth()
     const [ jobDescription, setJobDescription ] = useState("")
     const [ selfDescription, setSelfDescription ] = useState("")
     const [ error, setError ] = useState("")
     const resumeInputRef = useRef()
 
     const navigate = useNavigate()
+
+    const handleLogoutClick = async () => {
+        try {
+            await handleLogout()
+            navigate('/login')
+        } catch (err) {
+            console.error('Logout failed:', err)
+        }
+    }
 
     const handleGenerateReport = async () => {
     setError("")
@@ -48,6 +59,21 @@ const Home = () => {
 
     return (
         <div className='home-page'>
+
+            {/* Top Navigation */}
+            <nav className='top-nav'>
+                <div className='top-nav__content'>
+                    <h1 className='top-nav__title'>Interview Prep AI</h1>
+                    <button 
+                        className='logout-btn' 
+                        onClick={handleLogoutClick}
+                        disabled={loading}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+                        Logout
+                    </button>
+                </div>
+            </nav>
 
             {/* Page Header */}
             <header className='page-header'>

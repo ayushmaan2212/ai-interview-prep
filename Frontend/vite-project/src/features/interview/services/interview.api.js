@@ -1,7 +1,9 @@
 import axios from "axios";
 
+const apiBaseURL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 const api = axios.create({
-  baseURL: "https://ai-interview-prep-5rvb.onrender.com",
+  baseURL: apiBaseURL,
   withCredentials: true,
 });
 

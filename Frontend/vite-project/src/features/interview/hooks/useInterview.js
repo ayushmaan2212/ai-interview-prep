@@ -1,12 +1,16 @@
-import {generateInterviewReport,getAllInterviewReports,getInterviewReportById,generateResumePdf
+import {
+  generateInterviewReport,
+  getAllInterviewReports,
+  getInterviewReportById,
+  generateResumePdf,
 } from "../services/interview.api";
-import { useContext ,useEffect} from "react";
+import { useContext, useEffect } from "react";
 import { InterviewContext } from "../interview.context";
 import { useParams } from "react-router";
 
 export const useInterview = () => {
   const context = useContext(InterviewContext);
-    const { interviewId } = useParams();
+  const { interviewId } = useParams();
 
   if (!context) {
     throw new Error("useInterview must be used within an InterviewProvider");
@@ -36,10 +40,12 @@ export const useInterview = () => {
       }
     } catch (err) {
       console.error("Error generating report:", err);
-      throw new Error(
+      const errorMessage =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
         err?.message ||
-          "Failed to generate interview report. Please try again.",
-      );
+        "Failed to generate interview report. Please try again.";
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -48,17 +54,17 @@ export const useInterview = () => {
   const getReportById = async (reportId) => {
     setLoading(true);
     try {
-        const response = await getInterviewReportById(reportId);
-        if (response?.interviewReport) {
-            setReport(response.interviewReport);
-            return response.interviewReport;
-        }
+      const response = await getInterviewReportById(reportId);
+      if (response?.interviewReport) {
+        setReport(response.interviewReport);
+        return response.interviewReport;
+      }
     } catch (err) {
-        console.log(err);
+      console.log(err);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
-};
+  };
 
   const getReports = async () => {
     setLoading(true);
@@ -78,20 +84,22 @@ export const useInterview = () => {
     setLoading(true);
     let response = null;
     try {
-        response = await generateResumePdf(interviewReportId);
-        const url = window.URL.createObjectURL(new Blob([response], { type: 'application/pdf' }));
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `resume_${interviewReportId}.pdf`);
-        document.body.appendChild(link);
-        link.click();
+      response = await generateResumePdf(interviewReportId);
+      const url = window.URL.createObjectURL(
+        new Blob([response], { type: "application/pdf" }),
+      );
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `resume_${interviewReportId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
     } catch (err) {
-        console.log(err);
+      console.log(err);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
-  
+
   useEffect(() => {
     if (interviewId) {
       getReportById(interviewId);
@@ -100,5 +108,13 @@ export const useInterview = () => {
     }
   }, [interviewId]);
 
-  return {loading,report,reports,generateReport,getReportById,getReports,getResumePdf};
+  return {
+    loading,
+    report,
+    reports,
+    generateReport,
+    getReportById,
+    getReports,
+    getResumePdf,
+  };
 };
