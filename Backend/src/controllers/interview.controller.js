@@ -142,28 +142,36 @@ async function getAllInterviewReportsController(req, res) {
  * @description controller to generate a PDF based on resume , self description and job description
  */
 async function generateResumePdfController(req, res) {
-  const { interviewReportId } = req.params;
+  try {
+    const { interviewReportId } = req.params;
 
-  const interviewReport =
-    await interviewReportModel.findById(interviewReportId);
-  if (!interviewReport) {
-    return res.status(404).json({
-      error: "Interview report not found",
+    const interviewReport =
+      await interviewReportModel.findById(interviewReportId);
+    if (!interviewReport) {
+      return res.status(404).json({
+        error: "Interview report not found",
+      });
+    }
+
+    const { resume, selfDescription, jobDescription } = interviewReport;
+
+    const pdfBuffer = await generateResumePdf({
+      resume,
+      selfDescription,
+      jobDescription,
+    });
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename=interview_report_${interviewReportId}.pdf`,
+    });
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error("Error generating resume PDF:", error);
+    res.status(500).json({
+      error: "Failed to generate resume PDF",
+      details: error.message,
     });
   }
-
-  const { resume, selfDescription, jobDescription } = interviewReport;
-
-  const pdfBuffer = await generateResumePdf({
-    resume,
-    selfDescription,
-    jobDescription,
-  });
-  res.set({
-    "Content-Type": "application/pdf",
-    "Content-Disposition": `attachment; filename=interview_report_${interviewReportId}.pdf`,
-  });
-  res.send(pdfBuffer);
 }
 
 module.exports = {

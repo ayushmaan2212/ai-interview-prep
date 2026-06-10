@@ -1,7 +1,7 @@
 const Groq = require("groq-sdk");
 const { z } = require("zod");
 const { zodToJsonSchema } = require("zod-to-json-schema");
-const puppeteer = require("puppeteer");
+const PDFDocument = require("pdfkit");
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -57,8 +57,7 @@ const interviewReportSchema = z.object({
           .enum(["low", "medium", "high"])
           .describe(
             "The severity of this skill gap, i.e. how important is this skill for the job and how much it can impact the candidate's chances",
-          ) 
-
+          )
       }),
     )
     .describe(
@@ -133,8 +132,8 @@ ${JSON.stringify(zodToJsonSchema(interviewReportSchema), null, 2)}`;
     model: "llama-3.3-70b-versatile",
     messages: [
       {
-    role: "system",
-    content: `You are an expert technical interviewer. Always respond with valid JSON only. No markdown, no backticks, no explanation.
+        role: "system",
+        content: `You are an expert technical interviewer. Always respond with valid JSON only. No markdown, no backticks, no explanation.
 
 CRITICAL: You MUST use these EXACT field names, no variations:
 - "matchScore" (number 0-100)
@@ -146,125 +145,343 @@ CRITICAL: You MUST use these EXACT field names, no variations:
 
 DO NOT use: skillGaps, skillGap, focusArea, actionableTasks, answerGuide, keyPoints, or any other field names.
 DO NOT nest answers inside objects. "answer" must be a plain string.
-DO NOT use numbers for severity. Only use "low", "medium", or "high".`
-},
+DO NOT use numbers for severity. Only use "low", "medium", or "high".`,
+      },
     ],
     response_format: { type: "json_object" },
   });
 
   const result = JSON.parse(response.choices[0].message.content);
 
-
-const severityMap = (val) => {
-    if (typeof val === 'number') {
-        if (val >= 7) return 'high';
-        if (val >= 4) return 'medium';
-        return 'low';
+  const severityMap = (val) => {
+    if (typeof val === "number") {
+      if (val >= 7) return "high";
+      if (val >= 4) return "medium";
+      return "low";
     }
-    return val?.toLowerCase() || 'low';
-};
+    return val?.toLowerCase() || "low";
+  };
 
-// normalize skillsGap
-if (result.skillGaps && !result.skillsGap) {
+  // normalize skillsGap
+  if (result.skillGaps && !result.skillsGap) {
     result.skillsGap = result.skillGaps;
     delete result.skillGaps;
-}
-if (result.skillsGap && !Array.isArray(result.skillsGap)) {
+  }
+  if (result.skillsGap && !Array.isArray(result.skillsGap)) {
     result.skillsGap = Object.values(result.skillsGap);
-}
-result.skillsGap = result.skillsGap?.map(item => ({
+  }
+  result.skillsGap = result.skillsGap?.map((item) => ({
     skill: item.skill,
-    severity: severityMap(item.severity)
-}));
+    severity: severityMap(item.severity),
+  }));
 
-// normalize preparationPlan
-if (result.preparationPlan && !Array.isArray(result.preparationPlan)) {
+  // normalize preparationPlan
+  if (result.preparationPlan && !Array.isArray(result.preparationPlan)) {
     result.preparationPlan = Object.values(result.preparationPlan);
-}
-if (result.preparationPlan) {
-    result.preparationPlan = result.preparationPlan.map(item => ({
-        day: item.day,
-        focus: item.focus || item.focusArea,
-        tasks: item.tasks || item.actionableTasks
+  }
+  if (result.preparationPlan) {
+    result.preparationPlan = result.preparationPlan.map((item) => ({
+      day: item.day,
+      focus: item.focus || item.focusArea,
+      tasks: item.tasks || item.actionableTasks,
     }));
-}
+  }
 
-// normalize questions
-const normalizeQuestions = (arr) => {
+  // normalize questions
+  const normalizeQuestions = (arr) => {
     if (!Array.isArray(arr)) arr = Object.values(arr || {});
-    return arr.map(q => ({
-        question: q.question,
-        intention: q.intention,
-        answer: q.answer || q.answerGuide?.answer || q.answerGuide?.keyPoints?.join(', ') || q.answerGuide?.overview || JSON.stringify(q.answerGuide) || ''
+    return arr.map((q) => ({
+      question: q.question,
+      intention: q.intention,
+      answer:
+        q.answer ||
+        q.answerGuide?.answer ||
+        q.answerGuide?.keyPoints?.join(", ") ||
+        q.answerGuide?.overview ||
+        JSON.stringify(q.answerGuide) ||
+        "",
     }));
-};
+  };
 
-result.technicalQuestions = normalizeQuestions(result.technicalQuestions);
-result.behavioralQuestions = normalizeQuestions(result.behavioralQuestions);
+  result.technicalQuestions = normalizeQuestions(result.technicalQuestions);
+  result.behavioralQuestions = normalizeQuestions(result.behavioralQuestions);
 
   return result;
 }
 
-async function generatePdfFromHtml(htmlContent) {
-    const browser = await puppeteer.launch({
-        headless: 'new',
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu'
-        ]
-    })
-    const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: "networkidle0" })
+/**
+ * Helper: build a PDF from structured resume data using pdfkit (no browser needed)
+ */
+function buildResumePdf(resumeData) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ size: "A4", margin: 50 });
+      const buffers = [];
 
-    const pdfBuffer = await page.pdf({
-        format: "A4", margin: {
-            top: "20mm",
-            bottom: "20mm",
-            left: "15mm",
-            right: "15mm"
-        }
-    })
+      doc.on("data", (chunk) => buffers.push(chunk));
+      doc.on("end", () => resolve(Buffer.concat(buffers)));
+      doc.on("error", reject);
 
-    await browser.close()
-    return pdfBuffer
+      const colors = {
+        primary: "#1a365d",
+        secondary: "#2d3748",
+        accent: "#3182ce",
+        text: "#2d3748",
+        lightText: "#718096",
+        line: "#cbd5e0",
+      };
+
+      // --- Header / Name ---
+      doc
+        .fontSize(24)
+        .fillColor(colors.primary)
+        .font("Helvetica-Bold")
+        .text(resumeData.name || "Candidate", { align: "center" });
+
+      if (resumeData.contact) {
+        const contactParts = [
+          resumeData.contact.email,
+          resumeData.contact.phone,
+          resumeData.contact.location,
+          resumeData.contact.linkedin,
+        ].filter(Boolean);
+        doc
+          .fontSize(9)
+          .fillColor(colors.lightText)
+          .font("Helvetica")
+          .text(contactParts.join("  |  "), { align: "center" });
+      }
+
+      doc.moveDown(0.5);
+      doc
+        .strokeColor(colors.accent)
+        .lineWidth(2)
+        .moveTo(50, doc.y)
+        .lineTo(545, doc.y)
+        .stroke();
+      doc.moveDown(0.8);
+
+      // --- Helper: section heading ---
+      const sectionHeading = (title) => {
+        doc
+          .fontSize(13)
+          .fillColor(colors.primary)
+          .font("Helvetica-Bold")
+          .text(title.toUpperCase());
+        doc.moveDown(0.15);
+        doc
+          .strokeColor(colors.line)
+          .lineWidth(0.5)
+          .moveTo(50, doc.y)
+          .lineTo(545, doc.y)
+          .stroke();
+        doc.moveDown(0.4);
+      };
+
+      // --- Professional Summary ---
+      if (resumeData.summary) {
+        sectionHeading("Professional Summary");
+        doc
+          .fontSize(10)
+          .fillColor(colors.text)
+          .font("Helvetica")
+          .text(resumeData.summary, { lineGap: 2 });
+        doc.moveDown(0.8);
+      }
+
+      // --- Skills ---
+      if (resumeData.skills && resumeData.skills.length > 0) {
+        sectionHeading("Skills");
+        doc
+          .fontSize(10)
+          .fillColor(colors.text)
+          .font("Helvetica")
+          .text(resumeData.skills.join("  •  "), { lineGap: 2 });
+        doc.moveDown(0.8);
+      }
+
+      // --- Experience ---
+      if (resumeData.experience && resumeData.experience.length > 0) {
+        sectionHeading("Experience");
+        resumeData.experience.forEach((exp) => {
+          doc
+            .fontSize(11)
+            .fillColor(colors.secondary)
+            .font("Helvetica-Bold")
+            .text(exp.title || exp.role || "Role", { continued: true })
+            .font("Helvetica")
+            .fillColor(colors.lightText)
+            .text(
+              `  —  ${exp.company || ""}   ${exp.duration || exp.dates || ""}`,
+              { lineGap: 1 },
+            );
+
+          if (exp.highlights && exp.highlights.length > 0) {
+            exp.highlights.forEach((h) => {
+              doc
+                .fontSize(10)
+                .fillColor(colors.text)
+                .font("Helvetica")
+                .text(`• ${h}`, { indent: 15, lineGap: 1 });
+            });
+          } else if (exp.description) {
+            doc
+              .fontSize(10)
+              .fillColor(colors.text)
+              .font("Helvetica")
+              .text(exp.description, { indent: 15, lineGap: 1 });
+          }
+          doc.moveDown(0.5);
+        });
+        doc.moveDown(0.3);
+      }
+
+      // --- Education ---
+      if (resumeData.education && resumeData.education.length > 0) {
+        sectionHeading("Education");
+        resumeData.education.forEach((edu) => {
+          doc
+            .fontSize(11)
+            .fillColor(colors.secondary)
+            .font("Helvetica-Bold")
+            .text(edu.degree || edu.title || "Degree", { continued: true })
+            .font("Helvetica")
+            .fillColor(colors.lightText)
+            .text(
+              `  —  ${edu.institution || edu.school || ""}   ${edu.year || edu.dates || ""}`,
+              { lineGap: 1 },
+            );
+          if (edu.details) {
+            doc
+              .fontSize(10)
+              .fillColor(colors.text)
+              .font("Helvetica")
+              .text(edu.details, { indent: 15, lineGap: 1 });
+          }
+          doc.moveDown(0.3);
+        });
+        doc.moveDown(0.3);
+      }
+
+      // --- Projects ---
+      if (resumeData.projects && resumeData.projects.length > 0) {
+        sectionHeading("Projects");
+        resumeData.projects.forEach((proj) => {
+          doc
+            .fontSize(11)
+            .fillColor(colors.secondary)
+            .font("Helvetica-Bold")
+            .text(proj.name || proj.title || "Project");
+          if (proj.description) {
+            doc
+              .fontSize(10)
+              .fillColor(colors.text)
+              .font("Helvetica")
+              .text(proj.description, { indent: 15, lineGap: 1 });
+          }
+          if (proj.technologies) {
+            doc
+              .fontSize(9)
+              .fillColor(colors.accent)
+              .font("Helvetica-Oblique")
+              .text(
+                `Technologies: ${Array.isArray(proj.technologies) ? proj.technologies.join(", ") : proj.technologies}`,
+                { indent: 15 },
+              );
+          }
+          doc.moveDown(0.4);
+        });
+        doc.moveDown(0.3);
+      }
+
+      // --- Certifications ---
+      if (resumeData.certifications && resumeData.certifications.length > 0) {
+        sectionHeading("Certifications");
+        resumeData.certifications.forEach((cert) => {
+          const certText =
+            typeof cert === "string" ? cert : cert.name || cert.title || "";
+          doc
+            .fontSize(10)
+            .fillColor(colors.text)
+            .font("Helvetica")
+            .text(`• ${certText}`, { indent: 15, lineGap: 1 });
+        });
+        doc.moveDown(0.3);
+      }
+
+      doc.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
 }
 
 async function generateResumePdf({ resume, jobDescription, selfDescription }) {
-    const prompt = `Generate resume for a candidate with the following details:
-                        Resume: ${resume}
-                        Self Description: ${selfDescription}
-                        Job Description: ${jobDescription}
+  const prompt = `Generate a structured resume JSON for a candidate with the following details:
+Resume: ${resume}
+Self Description: ${selfDescription}
+Job Description: ${jobDescription}
 
-                        the response should be a JSON object with a single field "html" which contains the HTML content of the resume which can be converted to PDF using any library like puppeteer.
-                        The resume should be tailored for the given job description and should highlight the candidate's strengths and relevant experience. The HTML content should be well-formatted and structured, making it easy to read and visually appealing.
-                        The content of resume should be not sound like it's generated by AI and should be as close as possible to a real human-written resume.
-                        you can highlight the content using some colors or different font styles but the overall design should be simple and professional.
-                        The content should be ATS friendly, i.e. it should be easily parsable by ATS systems without losing important information.
-                        The resume should not be so lengthy, it should ideally be 1-2 pages long when converted to PDF. Focus on quality rather than quantity and make sure to include all the relevant information that can increase the candidate's chances of getting an interview call for the given job description.
-                    `;
-
-    const response = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-            {
-                role: "system",
-                content: "You are an expert resume builder. Always respond with valid JSON only. No markdown, no backticks, no explanation. Return only {\"html\": \"<your html here>\"}"
-            },
-            {
-                role: "user",
-                content: prompt
-            }
-        ],
-        response_format: { type: "json_object" },
-    });
-
-    const result = JSON.parse(response.choices[0].message.content);
-    const pdfBuffer = await generatePdfFromHtml(result.html)
-
-    return pdfBuffer;
+Return a JSON object with these fields:
+{
+  "name": "Full Name",
+  "contact": {
+    "email": "email@example.com",
+    "phone": "+1-XXX-XXX-XXXX",
+    "location": "City, State",
+    "linkedin": "linkedin.com/in/username"
+  },
+  "summary": "Professional summary paragraph",
+  "skills": ["Skill1", "Skill2", "Skill3"],
+  "experience": [
+    {
+      "title": "Job Title",
+      "company": "Company Name",
+      "duration": "Jan 2023 - Present",
+      "highlights": ["Achievement 1", "Achievement 2"]
+    }
+  ],
+  "education": [
+    {
+      "degree": "Degree Name",
+      "institution": "University Name",
+      "year": "2020-2024"
+    }
+  ],
+  "projects": [
+    {
+      "name": "Project Name",
+      "description": "Brief description",
+      "technologies": ["Tech1", "Tech2"]
+    }
+  ],
+  "certifications": ["Cert 1", "Cert 2"]
 }
 
-module.exports = {generateInterviewReport, generateResumePdf};
+The resume should be tailored for the given job description and should highlight the candidate's strengths and relevant experience.
+The content should NOT sound AI-generated. Keep it concise (1-2 pages worth of content) and ATS-friendly.
+Fill in real data from the provided resume and self description. Only include sections that have relevant data.`;
+
+  const response = await groq.chat.completions.create({
+    model: "llama-3.3-70b-versatile",
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are an expert resume builder. Always respond with valid JSON only. No markdown, no backticks, no explanation.",
+      },
+      {
+        role: "user",
+        content: prompt,
+      },
+    ],
+    response_format: { type: "json_object" },
+  });
+
+  const result = JSON.parse(response.choices[0].message.content);
+  const pdfBuffer = await buildResumePdf(result);
+
+  return pdfBuffer;
+}
+
+module.exports = { generateInterviewReport, generateResumePdf };
