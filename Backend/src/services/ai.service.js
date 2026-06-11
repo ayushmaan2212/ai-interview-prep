@@ -147,6 +147,10 @@ DO NOT use: skillGaps, skillGap, focusArea, actionableTasks, answerGuide, keyPoi
 DO NOT nest answers inside objects. "answer" must be a plain string.
 DO NOT use numbers for severity. Only use "low", "medium", or "high".`,
       },
+      {
+        role: "user",
+        content: prompt,
+      },
     ],
     response_format: { type: "json_object" },
   });

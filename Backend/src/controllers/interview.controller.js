@@ -29,7 +29,7 @@ async function generateInterviewReportController(req, res) {
     }
 
     const interviewReportByAi = await generateInterviewReport({
-      resume: resumeContent?.text || "",
+      resume: resumeContent || "",
       selfDescription,
       jobDescription,
     });
@@ -74,7 +74,7 @@ async function generateInterviewReportController(req, res) {
 
     const interviewReport = new interviewReportModel({
       user: req.user.id,
-      resume: resumeContent?.text || "",
+      resume: resumeContent || "",
       selfDescription,
       jobDescription:
         typeof jobDescription === "string"
